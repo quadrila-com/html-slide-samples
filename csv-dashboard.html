@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Quarterly sales dashboard</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --ink: #081120;
+        --panel: #111d31;
+        --panel-soft: #172641;
+        --line: rgba(255, 255, 255, .12);
+        --text: #f4f7fb;
+        --muted: #aab7cc;
+        --blue: #5da9ff;
+        --teal: #38d6b2;
+        --orange: #ffaf62;
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-width: 1280px;
+        min-height: 720px;
+        background: radial-gradient(circle at 88% 8%, #1e416f 0, transparent 30%), var(--ink);
+        color: var(--text);
+        font-family: "Segoe UI", Arial, sans-serif;
+      }
+      .slide { padding: 52px 64px; }
+      .topbar, .controls, .metrics, .content, .legend { display: flex; }
+      .topbar { justify-content: space-between; align-items: start; }
+      .eyebrow {
+        margin: 0 0 10px;
+        color: var(--teal);
+        font-size: 15px;
+        font-weight: 700;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+      }
+      h1 { margin: 0; font-size: 43px; line-height: 1.08; letter-spacing: -.03em; }
+      .source { margin: 12px 0 0; color: var(--muted); font-size: 16px; }
+      .controls { gap: 10px; align-items: center; }
+      .filter, .region {
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: rgba(17, 29, 49, .82);
+        color: var(--text);
+        font: inherit;
+        font-size: 15px;
+        padding: 10px 16px;
+      }
+      .region { cursor: pointer; }
+      .region.active { background: var(--blue); border-color: var(--blue); color: var(--ink); font-weight: 700; }
+      .metrics { gap: 18px; margin: 38px 0 28px; }
+      .metric {
+        flex: 1;
+        min-height: 122px;
+        padding: 22px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: rgba(17, 29, 49, .83);
+      }
+      .metric__label { color: var(--muted); font-size: 15px; }
+      .metric__value { margin-top: 10px; font-size: 34px; font-weight: 700; letter-spacing: -.03em; }
+      .metric__note { margin-top: 6px; color: var(--teal); font-size: 14px; }
+      .content { gap: 28px; }
+      .chart, .summary {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: rgba(17, 29, 49, .83);
+      }
+      .chart { flex: 1.7; padding: 26px 28px 24px; }
+      .summary { flex: 1; padding: 26px 28px; }
+      h2 { margin: 0; font-size: 20px; }
+      .legend { gap: 20px; margin-top: 10px; color: var(--muted); font-size: 14px; }
+      .legend span::before { content: ""; display: inline-block; width: 9px; height: 9px; margin-right: 7px; border-radius: 50%; }
+      .legend .revenue::before { background: var(--blue); }
+      .legend .target::before { background: var(--orange); }
+      .bars { display: grid; gap: 17px; margin-top: 24px; }
+      .bar-row { display: grid; grid-template-columns: 58px 1fr 88px; gap: 12px; align-items: center; font-size: 15px; }
+      .track { height: 22px; overflow: hidden; border-radius: 5px; background: var(--panel-soft); }
+      .target-bar, .revenue-bar { height: 100%; border-radius: 5px; }
+      .target-bar { width: var(--target); background: var(--orange); opacity: .58; }
+      .revenue-bar { width: var(--revenue); margin-top: -22px; background: var(--blue); }
+      .value { color: var(--muted); text-align: right; }
+      .summary p { color: var(--muted); line-height: 1.45; }
+      .highlight { margin: 24px 0 0; padding: 18px; border-left: 3px solid var(--teal); background: rgba(56, 214, 178, .08); }
+      .highlight strong { display: block; font-size: 23px; }
+      .highlight span { display: block; margin-top: 5px; color: var(--muted); font-size: 14px; }
+      .status { margin-top: 24px; color: var(--muted); font-size: 13px; }
+      .status.error { color: var(--orange); }
+    </style>
+  </head>
+  <body>
+    <main class="slide">
+      <div class="topbar">
+        <div>
+          <p class="eyebrow">Sample data · CSV connected</p>
+          <h1>Quarterly sales performance</h1>
+          <p class="source">Choose a quarter and region to explore the sample data.</p>
+        </div>
+        <div class="controls" aria-label="Dashboard filters">
+          <select class="filter" id="quarter" aria-label="Quarter"></select>
+          <button class="region active" data-region="All">All regions</button>
+          <button class="region" data-region="North">North</button>
+          <button class="region" data-region="South">South</button>
+          <button class="region" data-region="East">East</button>
+          <button class="region" data-region="West">West</button>
+        </div>
+      </div>
+
+      <section class="metrics" aria-label="Key performance indicators">
+        <div class="metric"><div class="metric__label">Revenue</div><div class="metric__value" id="revenue">—</div><div class="metric__note" id="revenue-note">Loading data</div></div>
+        <div class="metric"><div class="metric__label">Target attainment</div><div class="metric__value" id="attainment">—</div><div class="metric__note" id="attainment-note">Loading data</div></div>
+        <div class="metric"><div class="metric__label">Pipeline</div><div class="metric__value" id="pipeline">—</div><div class="metric__note" id="pipeline-note">Loading data</div></div>
+      </section>
+
+      <section class="content">
+        <div class="chart">
+          <h2>Revenue by region</h2>
+          <div class="legend"><span class="revenue">Revenue</span><span class="target">Target</span></div>
+          <div class="bars" id="bars"></div>
+        </div>
+        <aside class="summary">
+          <h2>What to discuss</h2>
+          <p id="summary-copy">Loading the current view.</p>
+          <div class="highlight"><strong id="best-region">—</strong><span id="best-region-note">Top region</span></div>
+        </aside>
+      </section>
+      <p class="status" id="status">Loading CSV data…</p>
+    </main>
+
+    <script>
+      const CSV_URL = 'https://raw.githubusercontent.com/bhakuparkharsohtun/html-samples/main/quarterly-sales.csv';
+      const fallbackCsv = `quarter,region,revenue,target,pipeline
+Q1,North,124000,120000,38000
+Q1,South,98000,100000,29000
+Q1,East,116000,110000,34000
+Q1,West,108000,105000,31000
+Q2,North,138000,130000,42000
+Q2,South,112000,108000,33000
+Q2,East,129000,122000,39000
+Q2,West,121000,115000,36000
+Q3,North,149000,140000,46000
+Q3,South,119000,115000,35000
+Q3,East,137000,130000,41000
+Q3,West,132000,125000,39000`;
+      let data = [];
+      let activeRegion = 'All';
+
+      function parseCsv(text) {
+        const [header, ...rows] = text.trim().split(/\r?\n/);
+        const keys = header.split(',');
+        return rows.map((row) => Object.fromEntries(row.split(',').map((value, index) => [keys[index], index > 1 ? Number(value) : value])));
+      }
+      function money(value) { return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value); }
+      function selectedRows() {
+        const quarter = document.querySelector('#quarter').value;
+        return data.filter((row) => row.quarter === quarter && (activeRegion === 'All' || row.region === activeRegion));
+      }
+      function render() {
+        const rows = selectedRows();
+        const total = (field) => rows.reduce((sum, row) => sum + row[field], 0);
+        const revenue = total('revenue');
+        const target = total('target');
+        const pipeline = total('pipeline');
+        const attainment = target ? revenue / target : 0;
+        const best = rows.slice().sort((a, b) => b.revenue - a.revenue)[0];
+        document.querySelector('#revenue').textContent = money(revenue);
+        document.querySelector('#attainment').textContent = `${Math.round(attainment * 100)}%`;
+        document.querySelector('#pipeline').textContent = money(pipeline);
+        document.querySelector('#revenue-note').textContent = `${rows.length} region${rows.length === 1 ? '' : 's'} selected`;
+        document.querySelector('#attainment-note').textContent = revenue >= target ? 'Ahead of target' : 'Below target';
+        document.querySelector('#pipeline-note').textContent = 'Open opportunity value';
+        document.querySelector('#summary-copy').textContent = `${money(revenue)} in revenue against a ${money(target)} target for the selected view.`;
+        document.querySelector('#best-region').textContent = best ? best.region : 'No data';
+        document.querySelector('#best-region-note').textContent = best ? `${money(best.revenue)} revenue · strongest region` : 'Choose another filter';
+        const max = Math.max(...rows.map((row) => Math.max(row.revenue, row.target)), 1);
+        document.querySelector('#bars').innerHTML = rows.map((row) => `<div class="bar-row"><span>${row.region}</span><div class="track" style="--target:${row.target / max * 100}%;--revenue:${row.revenue / max * 100}%"><div class="target-bar"></div><div class="revenue-bar"></div></div><span class="value">${money(row.revenue)}</span></div>`).join('');
+      }
+      function populateQuarter() {
+        const quarters = [...new Set(data.map((row) => row.quarter))];
+        document.querySelector('#quarter').innerHTML = quarters.map((quarter) => `<option value="${quarter}">${quarter}</option>`).join('');
+        document.querySelector('#quarter').value = quarters[quarters.length - 1];
+      }
+      async function loadData() {
+        try {
+          const response = await fetch(`${CSV_URL}?v=${Date.now()}`, { cache: 'no-store' });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          data = parseCsv(await response.text());
+          document.querySelector('#status').textContent = 'Live source: quarterly-sales.csv on GitHub.';
+        } catch (error) {
+          data = parseCsv(fallbackCsv);
+          const status = document.querySelector('#status');
+          status.textContent = 'Using embedded sample data. Upload quarterly-sales.csv to GitHub, then refresh.';
+          status.classList.add('error');
+        }
+        populateQuarter();
+        render();
+      }
+      document.querySelector('#quarter').addEventListener('change', render);
+      document.querySelectorAll('.region').forEach((button) => button.addEventListener('click', () => {
+        activeRegion = button.dataset.region;
+        document.querySelectorAll('.region').forEach((item) => item.classList.toggle('active', item === button));
+        render();
+      }));
+      loadData();
+    </script>
+  </body>
+</html>
